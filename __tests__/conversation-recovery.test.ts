@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getConversations, MetaApiError } from "@/lib/meta/client";
 
-const token = "test-token-not-for-logging";
+const token = "IGtest-token-not-for-logging";
 const expanded = "participants,updated_time,messages.limit(1){message,from,created_time}";
 const ok = (body: unknown) => new Response(JSON.stringify(body), {
   status: 200, headers: { "Content-Type": "application/json" },

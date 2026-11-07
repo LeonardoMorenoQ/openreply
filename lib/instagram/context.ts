@@ -2,7 +2,9 @@ import { decryptToken } from "@/lib/meta/oauth";
 import { prisma } from "@/lib/db/client";
 
 export type InstagramContext =
-  | { provider: "META"; accessToken: string }
+  // instagramId names the account on graph.facebook.com, where a Unified
+  // login token's /me is a system user rather than the account.
+  | { provider: "META"; accessToken: string; instagramId?: string }
   | {
       provider: "ZERNIO";
       apiKey: string;
@@ -32,7 +34,11 @@ export async function createInstagramContext(
   operationId?: string
 ): Promise<InstagramContext> {
   if (account.provider !== "ZERNIO")
-    return { provider: "META", accessToken: decryptToken(account.accessToken) };
+    return {
+      provider: "META",
+      accessToken: decryptToken(account.accessToken),
+      instagramId: account.instagramId,
+    };
   if (!account.zernioAccountId)
     throw new Error("Zernio account is not connected");
   const connection = await prisma.zernioConnection.findUnique({

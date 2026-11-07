@@ -5,7 +5,12 @@ import {
   randomBytes,
   timingSafeEqual,
 } from "crypto";
-import { getEncryptionKeyHex, requireEnv } from "@/lib/env";
+import {
+  getEncryptionKeyHex,
+  getMetaGraphApiVersion,
+  getMetaLoginMode,
+  requireEnv,
+} from "@/lib/env";
 
 // Instagram API with Instagram Login authorizes on www.instagram.com. The old
 // api.instagram.com/oauth/authorize host belonged to the retired Basic Display
@@ -88,6 +93,10 @@ export function verifyOAuthState(state: string | null): OAuthStatePayload | null
 }
 
 export function getAuthorizationUrl(redirectUri: string, state: string): string {
+  if (getMetaLoginMode() === "unified") {
+    return getUnifiedAuthorizationUrl(redirectUri, state);
+  }
+
   const params = new URLSearchParams({
     client_id: requireEnv("INSTAGRAM_APP_ID"),
     redirect_uri: redirectUri,
@@ -129,6 +138,62 @@ export async function exchangeCodeForToken(
   return {
     accessToken: data.access_token,
     userId: String(data.user_id),
+  };
+}
+
+// --- Unified login (Facebook Login for Business + configuration) ---------
+//
+// The permissions live in the configuration on Meta's side, not in a scope
+// parameter: the dialog shows whatever the config_id grants. The config must
+// include business_management, or the system user the login creates is never
+// assigned the Instagram account and every call on it fails with 100/33
+// (diwenne/openreply#104).
+
+function getUnifiedAuthorizationUrl(redirectUri: string, state: string): string {
+  const params = new URLSearchParams({
+    client_id: requireEnv("FACEBOOK_APP_ID"),
+    redirect_uri: redirectUri,
+    config_id: requireEnv("META_LOGIN_CONFIG_ID"),
+    response_type: "code",
+    override_default_response_type: "true",
+    state,
+  });
+
+  return `https://www.facebook.com/${getMetaGraphApiVersion()}/dialog/oauth?${params.toString()}`;
+}
+
+/**
+ * Exchange a Unified login code. A configuration whose token type is a
+ * system-user access token returns one that does not expire, so there is no
+ * long-lived exchange or refresh step; expiresIn is null in that case.
+ */
+export async function exchangeUnifiedCodeForToken(
+  code: string,
+  redirectUri: string
+): Promise<{ accessToken: string; expiresIn: number | null }> {
+  const url = new URL(
+    `https://graph.facebook.com/${getMetaGraphApiVersion()}/oauth/access_token`
+  );
+  url.searchParams.set("client_id", requireEnv("FACEBOOK_APP_ID"));
+  url.searchParams.set("client_secret", requireEnv("FACEBOOK_APP_SECRET"));
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("code", code);
+
+  const response = await fetch(url.toString());
+  const data = await response.json();
+
+  if (!response.ok || data.error || !data.access_token) {
+    throw new Error(
+      `Token exchange failed: ${data.error?.message || JSON.stringify(data)}`
+    );
+  }
+
+  return {
+    accessToken: data.access_token,
+    expiresIn:
+      typeof data.expires_in === "number" && data.expires_in > 0
+        ? data.expires_in
+        : null,
   };
 }
 

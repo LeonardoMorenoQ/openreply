@@ -140,6 +140,28 @@ You can skip the entire Meta app section below and continue at [Test it end to e
 
 This is the slow part. The code works out of the box; getting Meta to send you comment events is where people lose an afternoon. Every step here exists because skipping it breaks something later. Have your Vercel domain from Step 3 ready, you will paste it in a few times.
 
+### Apps created from October 2026: Unified login
+
+Meta no longer offers "API setup with Instagram login" to new apps. The use case page says it is "not available for newer apps" and shows **API setup with Unified login** instead. OpenReply supports both. Which one it uses depends on one variable:
+
+| | Instagram Login (older apps) | Unified login (newer apps) |
+| --- | --- | --- |
+| Switch | `META_LOGIN_CONFIG_ID` unset | `META_LOGIN_CONFIG_ID` set |
+| App ID | `INSTAGRAM_APP_ID` (Instagram product) | `FACEBOOK_APP_ID` (App settings, Basic) |
+| Secret | `INSTAGRAM_APP_SECRET` | `FACEBOOK_APP_SECRET` |
+| Token | Instagram user token, 60 days, refreshed daily | System-user token, does not expire |
+| Graph host | `graph.instagram.com` | `graph.facebook.com` |
+
+To set up Unified login:
+
+1. In **Use cases**, open **Customize** on "Manage messaging & content on Instagram", then **API setup with Unified login**. Click **Create new configuration** (General login variation, system-user access token, Instagram account required).
+2. Add `business_management` to that configuration. The Unified login tab does not offer it, so open **Facebook Login for Business**, then **Configurations**, **Edit** the same configuration, and add it in the permissions step. Without it, the login succeeds but Meta assigns no Instagram account to the token, and connecting fails with "Meta returned no Instagram accounts" (diwenne/openreply#104).
+3. Copy the configuration's ID into `META_LOGIN_CONFIG_ID`, and the app's ID from **App settings**, **Basic**, into `FACEBOOK_APP_ID`.
+4. Register the redirect URL `https://your-app.vercel.app/api/instagram/callback` on the same page, under **Redirect URL**.
+5. Steps 6 (testers), 8 (webhook) and 9 (publish) below apply unchanged. Step 5's Instagram app ID and secret and step 7's Instagram redirect are not needed.
+
+Accounts connected earlier through Instagram Login keep working after you switch. OpenReply picks the Graph host from each account's token, not from the variable.
+
 ### Step 4: Create the Meta app
 
 Go to [developers.facebook.com/apps](https://developers.facebook.com/apps) and create an app.

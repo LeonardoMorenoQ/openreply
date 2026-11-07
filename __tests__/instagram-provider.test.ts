@@ -122,7 +122,7 @@ describe("Instagram provider boundary", () => {
     respond({ data: [{ id: "media" }] });
     expect(
       await getUserMedia({
-        context: { provider: "META", accessToken: "meta" },
+        context: { provider: "META", accessToken: "IGmeta" },
         limit: 3,
       })
     ).toEqual([{ id: "media" }]);
